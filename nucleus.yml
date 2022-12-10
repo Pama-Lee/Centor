@@ -1,0 +1,7 @@
+Name: Centor
+Author: Pama Lee
+Version: 1.0.0
+Main: cn.devspace.centor.main
+Description: This is a meeting timer application
+Route: centor
+Language: chs
