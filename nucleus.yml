@@ -1,7 +1,7 @@
 Name: Centro
 Author: Pama Lee
 Version: 1.0.0
-Main: cn.devspace.centro.main
+Main: cn.devspace.centro.Main
 Description: This is a meeting timer application
-Route: centor
+Route: centro
 Language: chs
