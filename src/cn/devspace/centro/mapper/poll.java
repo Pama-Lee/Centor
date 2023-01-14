@@ -16,6 +16,8 @@ import java.util.Map;
 
 public class poll extends RouteManager {
 
+    private final String NEW_POLL_PERMISSION_TYPE = "createNewPoll";
+
     /**
      * 创建新的Poll
      * @param args 自动传入post值
@@ -25,12 +27,23 @@ public class poll extends RouteManager {
     public String test(Map<String,String> args){
         //限定传入的参数
         String[] params = {"token","title","des","location","if_deadline","deadline","if_hide","times"};
+       Log.sendLog("create内部:"+Main.PluginKey);
         if(checkParams(args,params)){
+            Long time = System.currentTimeMillis();
+            String appToken =tokenUnit.newAppToken(Main.PluginKey, String.valueOf(time));
+            if (!tokenUnit.VerifyPermissionToken(args.get("token"),NEW_POLL_PERMISSION_TYPE,Main.applicationName,appToken,String.valueOf(time))){
+                return ResponseString(1403,-1,"token无效");
+            }
             Session session = Main.getPollSession();
             Poll poll = new Poll();
             poll.setTitle(args.get("title"));
             poll.setDes(args.get("des"));
             poll.setLocation(args.get("location"));
+            Long UID = tokenUnit.getUIDbyToken(args.get("token"));
+            if (UID == 0L){
+                return ResponseString(403,-1,"token失效");
+            }
+            poll.setUid(UID);
             poll.setIf_deadline(Integer.valueOf(args.get("if_deadline")));
             poll.setDeadline(args.get("deadline"));
             poll.setIf_hide(Integer.valueOf(args.get("if_hide")));
