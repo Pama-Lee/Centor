@@ -1,7 +1,9 @@
 package cn.devspace.centro;
 
+import cn.devspace.centro.entity.Announcement;
 import cn.devspace.centro.entity.Poll;
 import cn.devspace.centro.entity.User;
+import cn.devspace.centro.mapper.announcement;
 import cn.devspace.centro.mapper.poll;
 import cn.devspace.nucleus.Manager.DataBase.DataBase;
 import cn.devspace.nucleus.Message.Log;
@@ -9,7 +11,6 @@ import cn.devspace.nucleus.Plugin.PluginBase;
 import org.hibernate.Session;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Main extends PluginBase {
@@ -22,7 +23,11 @@ public class Main extends PluginBase {
     private DataBase dataBase;
 
     private static Session pollSession;
+    private static Session announcementSession;
 
+    /**
+     * 当插件加载时事件
+     */
     @Override
     public void onLoad() {
         PluginKey = super.getKey();
@@ -31,12 +36,18 @@ public class Main extends PluginBase {
         sendLog(translateMessage("initDatabase"));
         dataBase = new DataBase(this.getClass(),new User());
         pollSession = dataBase.newSession("poll",this.getClass(), new Poll());
+        announcementSession = dataBase.newSession("announcement",this.getClass(),new Announcement());
+
 
         // ==========初始化路由
         sendLog(translateMessage("initRouter"));
         initRoute(poll.class);
+        initRoute(announcement.class);
     }
 
+    /**
+     * 当插件完成加载时事件
+     */
     @Override
     public void onEnable() {
         sendLog(translateMessage("Enable",applicationName));
@@ -47,36 +58,14 @@ public class Main extends PluginBase {
             pollSession.getTransaction().begin();
         }
         return pollSession;
-
     }
-    public Map<Integer, Map<String,String>> parse(){
-        String test = "[[1673715415545,1673715415545]]";
-        int leng = test.length();
-        Map<Integer, Map<String,String>> map = new HashMap<>(20);
 
-        if (test.charAt(0) == '[' && test.charAt(1) == '['){
-            String[] st = test.split("],\\[");
-            for (int min=0;min<st.length;min++) {
-                st[min] = st[min].replace("[","").replace("]","");
-                String[] res = st[min].split(",");
-                Map<String, String> times = new HashMap<>(4);
-                times.put(res[0],res[1]);
-                map.put(min,times);
-            }
-            Log.sendLog(map.toString());
-            return map;
-        }else{
-            return null;
+    public static Session getAnnouncementSession(){
+        if (!announcementSession.getTransaction().isActive()){
+            announcementSession.getTransaction().begin();
         }
-
-
+        return announcementSession;
     }
-
-
-
-
-
-
 
 
 }

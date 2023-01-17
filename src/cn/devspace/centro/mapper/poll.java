@@ -16,6 +16,7 @@ import java.util.Map;
 
 public class poll extends RouteManager {
 
+    // Token TYPE
     private final String NEW_POLL_PERMISSION_TYPE = "createNewPoll";
 
     /**
@@ -56,8 +57,13 @@ public class poll extends RouteManager {
         }
     }
 
+    /**
+     * 获取前端所需的Poll数据
+     * @param args 传入数据
+     * @return 返回数据
+     */
     @Router("poll/getPolls")
-    public String getPolls(Map<String,String> args){
+    public Object getPolls(Map<String,String> args){
         String[] params = {"ltoken","page","t"};
         if (!checkParams(args,params)){
             return ResponseString(101,0,"非法参数");
@@ -66,17 +72,29 @@ public class poll extends RouteManager {
                 return ResponseString(102,0,"登陆失效");
             }else {
                 Session session = Main.getPollSession();
-                String UID = tokenUnit.getUIDbyLoginToken(args.get("ltoken"));
+                Long UID = tokenUnit.getUIDbyLoginToken(args.get("ltoken"));
+                if (UID == null){
+                    return ResponseString(101,0,"登陆失效");
+                }
+                if (System.currentTimeMillis() - Long.parseLong(args.get("t")) >= 10000 || Long.parseLong(args.get("t")) > System.currentTimeMillis()){
+                    return ResponseString(102,0,"时间不匹配");
+                }
                // Log.sendLog("UID:"+UID);
                 Criteria criteria = session.createCriteria(Poll.class);
-                criteria.add(Restrictions.eq("uid",Long.valueOf(UID)));
+                criteria.add(Restrictions.eq("uid",UID));
                 List<Poll> pollList = criteria.list();
                 if (pollList != null){
-                    Map<String,String > result = new HashMap<>(20);
+                    Map<String,Map<String ,String >> result = new HashMap<>(20);
+                    int i = 0;
                     for (Poll poll:pollList){
-                        result.put(String.valueOf(poll.getPid()),poll.getTitle());
+                        Map<String,String> res = new HashMap<>(5);
+                        res.put("title",poll.getTitle());
+                        res.put("des",poll.getDes());
+                        res.put("pid",String.valueOf(poll.getPid()));
+                        result.put(String.valueOf(i),res);
+                        i++;
                     }
-                    return Map2Json(result);
+                    return result;
                 }else {
                     return null;
                 }
