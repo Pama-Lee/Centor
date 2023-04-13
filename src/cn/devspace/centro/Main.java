@@ -4,14 +4,20 @@ import cn.devspace.centro.entity.Announcement;
 import cn.devspace.centro.entity.Poll;
 import cn.devspace.centro.entity.User;
 import cn.devspace.centro.mapper.announcement;
+import cn.devspace.centro.mapper.contact;
 import cn.devspace.centro.mapper.poll;
+import cn.devspace.centro.mapper.user;
+import cn.devspace.nucleus.App.MailLobby.unit.sendMail;
 import cn.devspace.nucleus.Manager.DataBase.DataBase;
-import cn.devspace.nucleus.Message.Log;
+import cn.devspace.nucleus.Plugin.Config.ConfigBase;
 import cn.devspace.nucleus.Plugin.PluginBase;
+import cn.devspace.nucleus.Plugin.manager.PluginDataTransfer;
+import cn.devspace.nucleus.Plugin.manager.PluginManager;
 import org.hibernate.Session;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Timer;
 
 public class Main extends PluginBase {
 
@@ -25,6 +31,9 @@ public class Main extends PluginBase {
     private static Session pollSession;
     private static Session announcementSession;
 
+    public static ConfigBase configBase;
+
+
     /**
      * 当插件加载时事件
      */
@@ -32,17 +41,25 @@ public class Main extends PluginBase {
     public void onLoad() {
         PluginKey = super.getKey();
         sendLog(translateMessage("Loading",applicationName,version));
-        // ==========初始化数据库
-        sendLog(translateMessage("initDatabase"));
-        dataBase = new DataBase(this.getClass(),new User());
-        pollSession = dataBase.newSession("poll",this.getClass(), new Poll());
-        announcementSession = dataBase.newSession("announcement",this.getClass(),new Announcement());
-
 
         // ==========初始化路由
         sendLog(translateMessage("initRouter"));
         initRoute(poll.class);
         initRoute(announcement.class);
+        initRoute(user.class);
+        initRoute(contact.class);
+
+        initConfig();
+    }
+
+    private void initConfig(){
+        configBase = new ConfigBase();
+        configBase.load(this.getPluginDataPath(), "config.yml");
+
+        if (configBase.get("host") == null) {
+            configBase.set("host", "https://domain.com");
+            configBase.save();
+        }
     }
 
     /**
@@ -67,5 +84,12 @@ public class Main extends PluginBase {
         return announcementSession;
     }
 
+    @Override
+    public void onEnabled() {
 
+        // 开启守护线程
+        Timer timer = new Timer();
+        // 每30分钟检查一次Poll的deadline
+        timer.schedule(new GuardThread(), 0, 1000 * 60 * 30);
+    }
 }

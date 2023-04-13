@@ -5,3 +5,4 @@ Main: cn.devspace.centro.Main
 Description: This is a meeting timer application
 Route: centro
 Language: chs
+Package: cn.devspace.centro
