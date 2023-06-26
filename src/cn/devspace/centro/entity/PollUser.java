@@ -22,6 +22,8 @@ public class PollUser extends DataEntity {
     private Long pid;
     private Long uid;
 
+    private String email;
+
     // 投票选项, 使用|分割
     private String options;
 
@@ -37,7 +39,11 @@ public class PollUser extends DataEntity {
 
 
     public String getEmail() {
-        return MapperManager.getInstance().userMapper.selectById(uid).getEmail();
+        if (uid != null) {
+            return MapperManager.getInstance().userMapper.selectById(uid).getEmail();
+        } else {
+            return email;
+        }
     }
 
 }

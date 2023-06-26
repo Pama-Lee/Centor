@@ -1,5 +1,6 @@
 package cn.devspace.centro.mapper;
 
+import cn.devspace.centro.GuardThread;
 import cn.devspace.centro.Main;
 import cn.devspace.centro.database.MapperManager;
 import cn.devspace.centro.entity.*;
@@ -7,25 +8,16 @@ import cn.devspace.centro.mail.MailBase;
 import cn.devspace.centro.mail.MailEntity;
 import cn.devspace.centro.units.pollUnit;
 import cn.devspace.centro.units.userUnit;
-import cn.devspace.nucleus.App.Login.units.tokenUnit;
 import cn.devspace.nucleus.Manager.Annotation.Router;
 import cn.devspace.nucleus.Manager.RouteManager;
-import cn.devspace.nucleus.Message.Log;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.google.gson.Gson;
 import org.apache.ibatis.annotations.Mapper;
-import org.hibernate.Criteria;
-import org.hibernate.Session;
-import org.hibernate.criterion.Restrictions;
 
 import java.util.*;
 
 @Mapper
 public class poll extends RouteManager {
-
-    // Token TYPE
-    private final String NEW_POLL_PERMISSION_TYPE = "createNewPoll";
 
     /**
      * 创建新的Poll
@@ -35,7 +27,7 @@ public class poll extends RouteManager {
     @Router("poll/createNewPoll")
     public String createNewPoll(Map<String,String> args){
         //限定传入的参数
-        String[] params = {"token","title","location","if_deadline","if_hide","times"};
+        String[] params = {"token","title","location","if_deadline","times"};
         if(checkParams(args,params)){
             //验证token
             LoginToken checkToken = userUnit.verifyLoginToken(args.get("token"));
@@ -58,7 +50,7 @@ public class poll extends RouteManager {
                     poll.setDeadline(String.valueOf(deadline.tid));
                 }
             }
-            poll.setIf_hide(Integer.valueOf(args.get("if_hide")));
+            poll.setAllow_guest(Integer.valueOf(args.get("allow_guest")));
 
             String times = pollUnit.getDatabaseFormatTime(args.get("times"));
             if (times == null){
@@ -69,6 +61,40 @@ public class poll extends RouteManager {
             MapperManager.getInstance().pollMapper.insert(poll);
             MailBase.getInstance().sendSingleMail(MapperManager.getInstance().userMapper.selectById(UID).getEmail(),"Centrosome Notice","You have created a new poll.<br> Title: "+args.get("title")+"<br> Location: "+args.get("location"));
             return ResponseString(200,1,"Create new poll success");
+        }else {
+            return ResponseString(101,-1,"Invalid params");
+        }
+    }
+
+    /**
+     * 停止投票
+     * @param args 传入参数
+     * @return 返回结果
+     */
+    @Router("poll/stopPoll")
+    public String stopPoll(Map<String,String> args){
+        String[] params = {"token","pid"};
+        if (checkParams(args,params)){
+            // 验证token
+            LoginToken checkToken = userUnit.verifyLoginToken(args.get("token"));
+            if (checkToken == null){
+                return ResponseString(403,-1,"Invalid token");
+            }
+            // 验证pid
+            Poll poll = MapperManager.getInstance().pollMapper.selectById(args.get("pid"));
+            if (poll == null){
+                return ResponseString(101,-1,"Invalid pid");
+            }
+            // 验证权限
+            if (!poll.getUid().equals(checkToken.getUid())){
+                return ResponseString(403,0,"Permission denied");
+            }
+            poll.setStatus(0);
+            MapperManager.getInstance().pollMapper.updateById(poll);
+
+            GuardThread.stop(poll);
+
+            return ResponseString(200,1,"Stop poll success");
         }else {
             return ResponseString(101,-1,"Invalid params");
         }
@@ -94,7 +120,17 @@ public class poll extends RouteManager {
             Page<Poll> page = new Page<>(Long.valueOf(args.get("page")),10);
             QueryWrapper<Poll> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("uid",checkToken.getUid()).last("ORDER BY pid DESC");
+            // 不等于2
+            queryWrapper.ne("status",2);
             Page<Poll> polls = MapperManager.getInstance().pollMapper.selectPage(page,queryWrapper);
+
+            for (Poll poll : polls.getRecords()) {
+                if (poll.getIf_deadline() == 1){
+                    DeadLineTime deadLineTime = MapperManager.getInstance().deadLineTimeBaseMapper.selectById(poll.getDeadline());
+                    poll.setDeadline(deadLineTime.getFullTime());
+                }
+            }
+
             return ResponseObject(200,1,"success",polls);
         }
     }
@@ -152,6 +188,11 @@ public class poll extends RouteManager {
             }
             if (!poll.getUid().equals(checkToken.getUid())){
                 return ResponseString(403,0,"Permission denied");
+            }
+
+            // 如果这个poll已经结束了, 则返回错误
+            if (poll.getStatus() == 0){
+                return ResponseString(403,0,"Poll has been stopped");
             }
 
             // 如果存在uid, 根据|分割
@@ -215,7 +256,30 @@ public class poll extends RouteManager {
                         mailEntities.add(mailEntity);
                         success++;
                     }else {
-                        fail++;
+                        pollUser.setEmail(email);
+
+                        // 检查是否已经邀请过了
+                        PollUser checkPollUser = MapperManager.getInstance().pollUserBaseMapper.selectOne(new QueryWrapper<PollUser>().eq("pid",args.get("pid")).eq("email",email));
+                        if (checkPollUser != null){
+                            fail++;
+                            continue;
+                        }
+                        MapperManager.getInstance().pollUserBaseMapper.insert(pollUser);
+
+                        // 新的token
+                        String token = UUID.randomUUID().toString();
+                        PollToken pollToken = new PollToken();
+                        pollToken.setPid(Long.valueOf(args.get("pid")));
+                        pollToken.setToken(token);
+                        pollToken.setEmail(email);
+                        MapperManager.getInstance().pollTokenBaseMapper.insert(pollToken);
+
+                        MailEntity mailEntity = new MailEntity();
+                        mailEntity.setSubject("Centrosome - You have been invited to a poll");
+                        mailEntity.setTo(email);
+                        mailEntity.setContent("You have been invited to a poll, please click the link below to view the poll: <br> 你被邀请到一个投票中, 请点击下面的链接查看投票: <br> <a href=\""+host+"/pollParticipate?p=" + args.get("pid") + "&token=" + token + "&email=" + email + "\">"+host+"/pollParticipate</a>");
+                        mailEntities.add(mailEntity);
+                        success++;
                     }
                 }
                 // 发送邮件
@@ -251,6 +315,11 @@ public class poll extends RouteManager {
                 return ResponseString(403,0,"Permission denied");
             }
 
+            // 如果这个poll已经结束了, 则返回错误
+            if (poll.getStatus() == 0){
+                return ResponseString(403,0,"Poll has been stopped");
+            }
+
             // 根据email查询uid
             User user = MapperManager.getInstance().userMapper.selectOne(new QueryWrapper<User>().eq("email",args.get("email")));
             if (user == null){
@@ -261,6 +330,37 @@ public class poll extends RouteManager {
             return ResponseString(200,1,"success");
         }
     }
+
+    // 删除poll
+    @Router("poll/deletePoll")
+    public Object deletePoll(Map<String,String> args){
+        String[] params = {"token","pid"};
+        if (!checkParams(args,params)){
+            return ResponseString(101,0,"Invalid params");
+        }else {
+            // 验证token
+            LoginToken checkToken = userUnit.verifyLoginToken(args.get("token"));
+            if (checkToken == null){
+                return ResponseString(403,0,"Invalid token");
+            }
+
+            // 检查pid是否属于当前用户
+            Poll poll = MapperManager.getInstance().pollMapper.selectById(args.get("pid"));
+            if (poll == null){
+                return ResponseString(404,0,"Poll not found");
+            }
+            if (!poll.getUid().equals(checkToken.getUid())){
+                return ResponseString(403,0,"Permission denied");
+            }
+
+            // 删除
+            poll.setStatus(2);
+            MapperManager.getInstance().pollMapper.updateById(poll);
+            return ResponseString(200,1,"success");
+        }
+    }
+
+
 
     @Router("poll/getPollData")
     public Object getPollData(Map<String, String> args){
@@ -318,7 +418,8 @@ public class poll extends RouteManager {
                 if (pollUser.getOptions() != null){
                     userOption.put("options",pollUnit.parseTimeToIdList(pollUser.getOptions()));
                 }
-                userOption.put("email",MapperManager.getInstance().userMapper.selectById(pollUser.getUid()).getEmail());
+                
+                userOption.put("email",pollUser.getEmail());
                 userOptions.add(userOption);
             }
 
@@ -342,6 +443,10 @@ public class poll extends RouteManager {
             Poll poll = MapperManager.getInstance().pollMapper.selectById(args.get("pid"));
             if (poll == null){
                 return ResponseString(404,0,"Poll not found");
+            }
+
+            if (poll.getStatus() == 0){
+                return ResponseString(403,0,"Poll has been stopped");
             }
 
             // 发起人
@@ -379,13 +484,30 @@ public class poll extends RouteManager {
             // 验证token
             LoginToken checkToken = userUnit.verifyLoginToken(args.get("token"));
             if (checkToken == null){
-                return ResponseString(403,0,"Invalid token");
+                if (args.get("email") != null) {
+                   PollToken pl =  MapperManager.getInstance().pollTokenBaseMapper.selectOne(new QueryWrapper<PollToken>().eq("email", args.get("email")).eq("token", args.get("token")).eq("status", "1"));
+                    if (pl == null) {
+                        return ResponseString(403, 0, "Invalid token");
+                    }
+                    String pid = String.valueOf(pl.getPid());
+                    if (!pid.equals(args.get("pid"))) {
+                        return ResponseString(403, 0, "Invalid token");
+                    }
+                    checkToken = new LoginToken();
+                    checkToken.setUid(0L);
+                } else {
+                    return ResponseString(403,0,"Invalid token");
+                }
             }
 
             // 检查pid是否存在
             Poll poll = MapperManager.getInstance().pollMapper.selectById(args.get("pid"));
             if (poll == null){
                 return ResponseString(404,0,"Poll not found");
+            }
+
+            if (poll.getStatus() == 0){
+                return ResponseString(403,0,"Poll has been stopped");
             }
 
             // 检查是否过了deadline
@@ -410,8 +532,16 @@ public class poll extends RouteManager {
                     return ResponseString(404,0,"Option not found");
                 }
             }
+
+           QueryWrapper<PollUser> p =  new QueryWrapper<PollUser>().eq("pid",args.get("pid"));
+            if (args.get("email") != null) {
+                p.eq("email", args.get("email"));
+            } else {
+                p.eq("uid", checkToken.getUid());
+            }
+
             // 检查是否已经参与过
-            PollUser pollUser = MapperManager.getInstance().pollUserBaseMapper.selectOne(new QueryWrapper<PollUser>().eq("pid",args.get("pid")).eq("uid",checkToken.getUid()));
+            PollUser pollUser = MapperManager.getInstance().pollUserBaseMapper.selectOne(p.last("limit 1"));
             if (pollUser == null){
                 // TODO: 是否支持匿名参与
                 if (poll.getAllow_guest() == 1){
@@ -431,6 +561,15 @@ public class poll extends RouteManager {
             // 更新
             pollUser.setOptions(args.get("options"));
             MapperManager.getInstance().pollUserBaseMapper.updateById(pollUser);
+
+            if (args.get("email") != null) {
+                PollToken pl =  MapperManager.getInstance().pollTokenBaseMapper.selectOne(new QueryWrapper<PollToken>().eq("email", args.get("email")).eq("token", args.get("token")).eq("status", "1"));
+                if (pl != null) {
+                    pl.setStatus(0);
+                    MapperManager.getInstance().pollTokenBaseMapper.updateById(pl);
+                }
+            }
+
             return ResponseString(200,1,"success");
         }
     }

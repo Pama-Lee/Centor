@@ -1,7 +1,6 @@
 package cn.devspace.centro.mail;
 
 import cn.devspace.nucleus.App.MailLobby.unit.sendMail;
-import lombok.Data;
 
 import java.util.Date;
 import java.util.List;

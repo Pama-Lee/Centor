@@ -1,22 +1,14 @@
 package cn.devspace.centro;
 
-import cn.devspace.centro.entity.Announcement;
-import cn.devspace.centro.entity.Poll;
-import cn.devspace.centro.entity.User;
 import cn.devspace.centro.mapper.announcement;
 import cn.devspace.centro.mapper.contact;
 import cn.devspace.centro.mapper.poll;
 import cn.devspace.centro.mapper.user;
-import cn.devspace.nucleus.App.MailLobby.unit.sendMail;
 import cn.devspace.nucleus.Manager.DataBase.DataBase;
 import cn.devspace.nucleus.Plugin.Config.ConfigBase;
 import cn.devspace.nucleus.Plugin.PluginBase;
-import cn.devspace.nucleus.Plugin.manager.PluginDataTransfer;
-import cn.devspace.nucleus.Plugin.manager.PluginManager;
 import org.hibernate.Session;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Timer;
 
 public class Main extends PluginBase {
@@ -89,7 +81,7 @@ public class Main extends PluginBase {
 
         // 开启守护线程
         Timer timer = new Timer();
-        // 每30分钟检查一次Poll的deadline
-        timer.schedule(new GuardThread(), 0, 1000 * 60 * 30);
+        // 每3分钟检查一次
+        timer.schedule(new GuardThread(), 0, 1000 * 60 * 3);
     }
 }

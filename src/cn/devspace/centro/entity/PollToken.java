@@ -7,20 +7,24 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import javax.persistence.*;
-import java.sql.Timestamp;
 
 @Data
 @Entity
-@TableName("centro_announcement")
-@Table(name = "centro_announcement")
-public class Announcement extends DataEntity {
+@Table(name = "centro_poll_token")
+@TableName("centro_poll_token")
+public class PollToken extends DataEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @TableId(type = IdType.AUTO)
-    private Long aid;
+    @Column(name = "id", nullable = false)
+    private Long id;
 
-    private String content;
+    private Long pid;
 
-    @Column(columnDefinition = "datetime default CURRENT_TIMESTAMP")
-    private Timestamp createTime;
+    private String token;
+
+    private String email;
+
+    @Column(columnDefinition = "int default 1")
+    private Integer status;
 }

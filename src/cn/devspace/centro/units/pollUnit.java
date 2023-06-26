@@ -155,4 +155,16 @@ public class pollUnit {
             return null;
         }
     }
+
+
+
+    // 获取Time的格式化字符串
+    public static String getTimeFormatString(PollTime pollTime){
+        return pollTime.year + "-" + pollTime.month + "-" + pollTime.day + " " + pollTime.start_time_hour + ":" + pollTime.start_time_minute + " - " + pollTime.end_time_hour + ":" + pollTime.end_time_minute;
+    }
+
+
 }
+
+
+

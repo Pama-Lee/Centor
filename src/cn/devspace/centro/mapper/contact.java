@@ -42,7 +42,8 @@ public class contact extends RouteManager {
             ContactDTO contactDTO = new ContactDTO();
             contactDTO.setTid(contact.getCid());
             String email = MapperManager.getInstance().userMapper.selectById(contact.getToUid()).getEmail();
-            contactDTO.setName(email);
+            contactDTO.setEmail(email);
+            contactDTO.setName(contact.getName());
             contactDTOList.add(contactDTO);
         }
 
@@ -87,10 +88,21 @@ public class contact extends RouteManager {
             }
             return ResponseString(101,0,"Contact Already Exists");
         }
+
+
+
         // 创建新联系人
         Contact contact = new Contact();
         contact.setFromUid(loginToken.getUid());
         contact.setToUid(list.get(0).getUid());
+        // 如果存在姓名
+        if (args.get("name") != null){
+            if (args.get("name").length() > 30){
+                return ResponseString(101,0,"Name Too Long");
+            }
+
+            contact.setName(args.get("name"));
+        }
         MapperManager.getInstance().contactMapper.insert(contact);
         return ResponseString(200,1,"Success");
     }

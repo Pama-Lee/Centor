@@ -24,4 +24,10 @@ public class DeadLineTime extends DataEntity {
     public String day;
     public String hour;
     public String minute;
+
+
+    public String getFullTime() {
+        return year + "-" + month + "-" + day + " " + hour + ":" + minute;
+    }
+
 }

@@ -24,6 +24,8 @@ public class Contact extends DataEntity {
     private Long fromUid;
     private Long toUid;
 
+    private String name;
+
     // 0: 删除 1: 正常
     @Column(columnDefinition = "int default 1")
     private Integer status;

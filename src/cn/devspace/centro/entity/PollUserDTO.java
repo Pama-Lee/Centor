@@ -12,7 +12,11 @@ public class PollUserDTO {
 
     public PollUserDTO(PollUser pollUser) {
         this.id = pollUser.getId();
-        this.email = MapperManager.getInstance().userMapper.selectById(pollUser.getUid()).getEmail();
+        if (pollUser.getUid() != null) {
+            this.email = MapperManager.getInstance().userMapper.selectById(pollUser.getUid()).getEmail();
+        } else {
+            this.email = pollUser.getEmail();
+        }
     }
 
 }

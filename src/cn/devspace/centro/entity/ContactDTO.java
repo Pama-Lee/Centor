@@ -11,10 +11,17 @@ public class ContactDTO {
     // 联系人id
     private Long tid;
     // 联系人姓名
+    private String email;
+
     private String name;
 
 
     public String getName() {
+        // 通过tid获取邮箱
+        return MapperManager.getInstance().userMapper.selectById(tid).getName();
+    }
+
+    public String getEmail() {
         // 通过tid获取邮箱
         return MapperManager.getInstance().userMapper.selectById(tid).getEmail();
     }

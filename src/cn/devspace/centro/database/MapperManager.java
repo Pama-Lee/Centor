@@ -48,6 +48,9 @@ public class MapperManager {
     @Resource
     public BaseMapper<PollUser> pollUserBaseMapper;
 
+    @Resource
+    public BaseMapper<PollToken> pollTokenBaseMapper;
+
 
 
 
