@@ -24,23 +24,24 @@ public class user extends RouteManager {
 
     /**
      * 接入RootJam
+     *
      * @param args
      * @return
      */
     @Router("login/token")
-    public Object login(Map<String, String> args){
+    public Object login(Map<String, String> args) {
 
         if (args.containsKey("token")) {
             String openId = requestToken(args.get("token"));
             if (openId == null) {
-                return ResponseString(101,0,"token Invalid");
-            }else {
+                return ResponseString(101, 0, "token Invalid");
+            } else {
                 // 查询数据库，如果存在则返回用户信息，如果不存在则创建新用户
                 QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-                queryWrapper.eq("openID",openId);
+                queryWrapper.eq("openID", openId);
                 List<User> list = MapperManager.getInstance().userMapper.selectList(queryWrapper);
-                if (list.size() > 1){
-                    return ResponseString(101,0,"User Info Error!");
+                if (list.size() > 1) {
+                    return ResponseString(101, 0, "User Info Error!");
                 }
                 if (list.size() == 0) {
                     // 创建新用户
@@ -49,82 +50,87 @@ public class user extends RouteManager {
                     MapperManager.getInstance().userMapper.insert(user);
                     LoginToken loginToken = createLoginToken(user, args.get("token"));
                     if (loginToken == null) {
-                        return ResponseString(101,0,"Create User Error");
+                        return ResponseString(101, 0, "Create User Error");
                     }
                     User user1 = requestUserInfo(openId);
                     if (user1 == null) {
-                        return ResponseString(101,0,"Create User Error");
+                        return ResponseString(101, 0, "Create User Error");
                     }
                     MapperManager.getInstance().userMapper.updateById(user1);
 
                     // 发送欢迎邮件
-                    MailBase.getInstance().sendSingleMail(user1.getEmail(),"Welcome to Centrosome","Welcome to Centrosome, your account is "+user1.getEmail());
+                    MailBase.getInstance().sendSingleMail(user1.getEmail(), "Welcome to Centrosome", "Welcome to Centrosome, your account is " + user1.getEmail());
 
-                    return ResponseObject(200,1,"Create User Success",loginToken);
+                    return ResponseObject(200, 1, "Create User Success", loginToken);
                 }
                 LoginToken loginToken = createLoginToken(list.get(0), args.get("token"));
                 if (loginToken == null) {
-                    return ResponseString(101,0,"Create User Error");
+                    return ResponseString(101, 0, "Create User Error");
                 }
-                return ResponseObject(200,1,"Login Success",loginToken);
+                return ResponseObject(200, 1, "Login Success", loginToken);
             }
         }
-        return ResponseString(101,0,"token Not Found");
+        return ResponseString(101, 0, "token Not Found");
     }
 
     @Router("user/info")
-    public Object getInfo(Map<String, String> args){
+    public Object getInfo(Map<String, String> args) {
         if (args.get("token") == null) {
-            return ResponseString(101,0,"token Not Found");
+            return ResponseString(101, 0, "token Not Found");
         }
         LoginToken loginToken = userUnit.verifyLoginToken(args.get("token"));
         if (loginToken == null) {
-            return ResponseString(101,0,"token Invalid");
+            return ResponseString(101, 0, "token Invalid");
         }
         User user = MapperManager.getInstance().userMapper.selectById(loginToken.getUid());
         if (user == null) {
-            return ResponseString(101,0,"User Not Found");
+            return ResponseString(101, 0, "User Not Found");
         }
 
         UserInfoDTO userInfoDTO = new UserInfoDTO();
         userInfoDTO.setName(user.getName());
         userInfoDTO.setEmail(user.getEmail());
 
-        return ResponseObject(200,1,"Get User Info Success",userInfoDTO);
+        return ResponseObject(200, 1, "Get User Info Success", userInfoDTO);
 
     }
 
-    private String requestToken(String token){
+    /**
+     * Get openId from RootJam
+     * @param token RootJam Token
+     * @return openId
+     */
+    private String requestToken(String token) {
         PluginManager pluginManager = new PluginManager();
         Map<String, Object> args = new HashMap<>(4);
-        args.put("token",token);
-        PluginDataTransfer pluginDataTransfer =  pluginManager.invoke("cn.pamalee.rootjam","Api","requestToken",args);
+        args.put("token", token);
+        PluginDataTransfer pluginDataTransfer = pluginManager.invoke("cn.pamalee.rootjam", "Api", "requestToken", args);
         if (pluginDataTransfer.isSuccessful) {
             if (pluginDataTransfer.getResult().get("openId") == null) {
                 return null;
-            }else {
+            } else {
                 return pluginDataTransfer.getResult().get("openId").toString();
             }
-        }else {
+        } else {
             testUnit.printAllFields(pluginDataTransfer);
-            // 请求出错
+            // Request Error
             return null;
         }
 
     }
 
-    private User requestUserInfo(String openId){
+    private User requestUserInfo(String openId) {
         PluginManager pluginManager = new PluginManager();
         Map<String, Object> args = new HashMap<>(4);
-        args.put("openid",openId);
-        PluginDataTransfer pluginDataTransfer =  pluginManager.invoke("cn.pamalee.rootjam","Api","requestUserInfoMap",args);
+        args.put("openid", openId);
+        PluginDataTransfer pluginDataTransfer = pluginManager.invoke("cn.pamalee.rootjam", "Api", "requestUserInfoMap", args);
         testUnit.printAllFields(pluginDataTransfer);
         if (pluginDataTransfer.isSuccessful) {
             Log.sendLog(String.valueOf(pluginDataTransfer.getResult()));
             if (pluginDataTransfer.getResult().get("email") == null) {
                 return null;
-            }else {
-                User user = MapperManager.getInstance().userMapper.selectList(new QueryWrapper<User>().eq("openID",openId)).get(0);
+            } else {
+                User user = MapperManager.getInstance().userMapper.selectList(new QueryWrapper<User>().eq("openID", openId)).get(0);
                 if (user == null) {
                     return null;
                 }
@@ -132,7 +138,7 @@ public class user extends RouteManager {
                 user.setName(pluginDataTransfer.getResult().get("user").toString());
                 return user;
             }
-        }else {
+        } else {
             Log.sendWarn(String.valueOf(pluginDataTransfer.getResult()));
             Log.sendWarn(String.valueOf(pluginDataTransfer.message));
             // 请求出错
@@ -141,15 +147,15 @@ public class user extends RouteManager {
 
     }
 
-    private LoginToken createLoginToken(User user, String sourceToken){
+    private LoginToken createLoginToken(User user, String sourceToken) {
         if (user.getOpenID() == null) {
             return null;
         }
         // 查询是否存在登录记录
         QueryWrapper<LoginToken> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("sourceToken",sourceToken);
+        queryWrapper.eq("sourceToken", sourceToken);
         List<LoginToken> list = MapperManager.getInstance().loginTokenMapper.selectList(queryWrapper);
-        if (list.size() >= 1){
+        if (list.size() >= 1) {
             // 检查是否过期
             if (list.get(0).getExpireTime() > System.currentTimeMillis()) {
                 // 未过期
